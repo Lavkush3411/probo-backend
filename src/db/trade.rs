@@ -30,4 +30,6 @@ pub struct TradeModel {
     pub opinion_id: String,
     pub favour_user_id: String,
     pub against_user_id: String,
+    pub favour_price: String,
+    pub against_price: String,
 }
