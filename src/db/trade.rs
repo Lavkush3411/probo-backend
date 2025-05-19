@@ -13,12 +13,12 @@ impl Trade {
     pub async fn create(&self) {
         let _ = query!(
             r#"--sql
-        INSERT INTO trades (opinion_id, favour_user_id,against_user_id )
-        VALUES ($1,$2,$3)
+        INSERT INTO trades (opinion_id, favour_user_id,against_user_id, favour_price, against_price )
+        VALUES ($1,$2,$3,$4,$5)
         "#,
             "",
             "",
-            ""
+            "",55,45
         )
         .execute(&self.pool)
         .await;
