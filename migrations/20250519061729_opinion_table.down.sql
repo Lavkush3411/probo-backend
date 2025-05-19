@@ -1,0 +1,8 @@
+-- Add down migration script here
+DROP EXTENSION IF EXISTS "uuid-ossp" CASCADE;
+
+DROP TABLE IF EXISTS users CASCADE;
+
+DROP TABLE IF EXISTS opinions CASCADE;
+
+DROP TABLE IF EXISTS trades CASCADE;

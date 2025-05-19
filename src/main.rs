@@ -13,7 +13,7 @@ async fn main() {
     dotenv().ok();
 
     let app_state= AppState::new().await;
-    let router= Router::new().route("/health-check", get(health_check)).merge(index_router().await).with_state(app_state);
+    let router= Router::new().route("/health-check", get(health_check)).merge(index_router()).with_state(app_state);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
