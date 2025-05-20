@@ -6,6 +6,7 @@ use std::{
 use crate::db::db::DB;
 use axum::extract::FromRef;
 use serde::{Deserialize, Serialize};
+
 pub type SharedOrderBook = Arc<RwLock<HashMap<String, OrderBook>>>;
 #[derive(Clone, FromRef)]
 pub struct AppState {
@@ -22,7 +23,7 @@ impl AppState {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OrderBook {
     pub favour: Vec<Order>,
     pub against: Vec<Order>,

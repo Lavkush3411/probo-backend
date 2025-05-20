@@ -2,16 +2,24 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     response::IntoResponse,
-    routing::post,
+    routing::{get, post},
 };
+use serde_json::json;
 
 use crate::{
     db::trade::TradeModel,
-    state::{AppState, Order, Side},
+    state::{AppState, Order, OrderBook, Side},
 };
 
 pub fn order_router() -> Router<AppState> {
-    Router::new().route("/{opinion_id}", post(handle_order))
+    Router::new()
+        .route("/{opinion_id}", post(handle_order))
+        .route("/order_book", get(get_order_book))
+}
+
+async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
+    let order_book = state.order_book.read().unwrap();
+    return Json(json!({"order_book":order_book.clone()})).into_response();
 }
 
 #[axum::debug_handler]
@@ -69,6 +77,7 @@ async fn handle_order(
                         remove += 1
                     }
                 }
+                println!("quantity is {} {:?}", quantity, trades);
 
                 for _ in 0..remove {
                     book_orders.favour.pop();
@@ -86,6 +95,8 @@ async fn handle_order(
                 let match_price = 1000 - order.price;
                 let mut quantity = order.quantity;
                 let mut remove = 0;
+                println!("quantity is {} {:?}", quantity, trades);
+
                 for book_order in book_orders.against.iter_mut().rev() {
                     // we will break if the highest price available for NO is less than minimum match price
                     if match_price > book_order.price {
@@ -119,6 +130,7 @@ async fn handle_order(
                         remove += 1
                     }
                 }
+                println!("quantity is {} {:?}", quantity, trades);
 
                 for _ in 0..remove {
                     book_orders.favour.pop();
@@ -127,10 +139,21 @@ async fn handle_order(
                 Some((quantity, trades))
             }
         },
-        None => None,
+        None => {
+            order_book.insert(
+                opinion_id.clone(),
+                OrderBook {
+                    favour: vec![],
+                    against: vec![],
+                },
+            );
+            None
+        }
     };
+    println!("We are here");
 
     if let Some((quantity, trades)) = remaining {
+        println!("quantity is {} {:?}", quantity, trades);
         match order.side {
             Side::Against => {
                 if quantity > 0 {
@@ -161,6 +184,8 @@ async fn handle_order(
                 for trade in trades.iter() {}
             }
         }
+    } else {
+        println!("no quantity")
     }
 
     Json("ok")

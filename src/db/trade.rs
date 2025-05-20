@@ -25,6 +25,7 @@ impl Trade {
     }
 }
 
+#[derive(Debug)]
 pub struct TradeModel {
     pub id: Option<String>,
     pub opinion_id: String,
