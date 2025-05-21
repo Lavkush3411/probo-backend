@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, query, query_as};
+use sqlx::{PgPool, query_as};
 
 #[derive(Clone)]
 pub struct User {

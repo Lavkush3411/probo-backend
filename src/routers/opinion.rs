@@ -1,4 +1,9 @@
-use axum::{Json, Router, extract::State, response::IntoResponse, routing::post};
+use axum::{
+    Json, Router,
+    extract::State,
+    response::IntoResponse,
+    routing::{get, post},
+};
 use serde_json::json;
 
 use crate::{
@@ -7,7 +12,9 @@ use crate::{
 };
 
 pub fn opinion_router() -> Router<AppState> {
-    Router::new().route("/", post(create_opinion))
+    Router::new()
+        .route("/", post(create_opinion))
+        .route("/opinions", get(get_opinions))
 }
 
 pub async fn create_opinion(
@@ -22,5 +29,13 @@ pub async fn create_opinion(
             println!("{:?}", err);
             Json("Error Occurred while creating opinion").into_response()
         }
+    }
+}
+
+pub async fn get_opinions(State(db): State<DB>) -> impl IntoResponse {
+    let opinions = db.opinion.find_many().await;
+    match opinions {
+        Ok(opinions) => Json(opinions).into_response(),
+        Err(_) => Json("Error occurred while fetching opinions").into_response(),
     }
 }

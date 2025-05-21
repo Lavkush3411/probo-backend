@@ -18,7 +18,7 @@ pub fn order_router() -> Router<AppState> {
 }
 
 async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
-    let order_book = state.order_book.read().unwrap();
+    let order_book = state.order_book.read().await;
     return Json(json!({"order_book":order_book.clone()})).into_response();
 }
 
@@ -28,7 +28,7 @@ async fn handle_order(
     Path(opinion_id): Path<String>,
     Json(order): Json<Order>,
 ) -> impl IntoResponse {
-    let mut order_book = state.order_book.write().unwrap();
+    let mut order_book = state.order_book.write().await;
     let db = state.db;
 
     let remaining = match order_book.get_mut(&opinion_id) {
@@ -133,7 +133,7 @@ async fn handle_order(
                 println!("quantity is {} {:?}", quantity, trades);
 
                 for _ in 0..remove {
-                    book_orders.favour.pop();
+                    book_orders.against.pop();
                 }
 
                 Some((quantity, trades))
@@ -156,8 +156,11 @@ async fn handle_order(
                         });
                     }
                 };
-                drop(order_book);
-                for trade in trades.iter() {}
+                println!("CREATING TRADE");
+                for trade in trades.iter() {
+                    println!("trade api");
+                    db.trade.create(&trade).await.unwrap();
+                }
             }
             Side::Favour => {
                 if quantity > 0 {
@@ -170,8 +173,9 @@ async fn handle_order(
                         });
                     }
                 };
-                drop(order_book);
-                for trade in trades.iter() {}
+                for trade in trades.iter() {
+                    db.trade.create(&trade).await.unwrap();
+                }
             }
         }
     } else {

@@ -34,6 +34,16 @@ impl Opinion {
         .fetch_one(&self.pool)
         .await
     }
+
+    pub async fn find_many(&self) -> Result<Vec<OpinionModel>, Error> {
+        query_as!(
+            OpinionModel,
+            r#"--sql 
+        SELECT * FROM opinions"#
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
