@@ -139,16 +139,8 @@ async fn handle_order(
                 Some((quantity, trades))
             }
         },
-        None => {
-            order_book.insert(
-                opinion_id.clone(),
-                OrderBook {
-                    favour: vec![],
-                    against: vec![],
-                },
-            );
-            None
-        }
+        None =>  None
+        
     };
     println!("We are here");
 
@@ -185,8 +177,24 @@ async fn handle_order(
             }
         }
     } else {
-        println!("no quantity")
-    }
+        match  &order.side {
+            Side::Against=>{
+                order_book.insert(
+               opinion_id.clone(),
+               OrderBook {
+                   favour: vec![],
+                   against: vec![order],
+               },
+           );},
+            Side::Favour=>{order_book.insert(
+               opinion_id.clone(),
+               OrderBook {
+                   favour: vec![order],
+                   against: vec![],
+               }
+           );}
+    };
+}
 
     Json("ok")
 }
