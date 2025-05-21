@@ -139,10 +139,8 @@ async fn handle_order(
                 Some((quantity, trades))
             }
         },
-        None =>  None
-        
+        None => None,
     };
-    println!("We are here");
 
     if let Some((quantity, trades)) = remaining {
         println!("quantity is {} {:?}", quantity, trades);
@@ -177,24 +175,27 @@ async fn handle_order(
             }
         }
     } else {
-        match  &order.side {
-            Side::Against=>{
+        match &order.side {
+            Side::Against => {
                 order_book.insert(
-               opinion_id.clone(),
-               OrderBook {
-                   favour: vec![],
-                   against: vec![order],
-               },
-           );},
-            Side::Favour=>{order_book.insert(
-               opinion_id.clone(),
-               OrderBook {
-                   favour: vec![order],
-                   against: vec![],
-               }
-           );}
-    };
-}
+                    opinion_id.clone(),
+                    OrderBook {
+                        favour: vec![],
+                        against: vec![order],
+                    },
+                );
+            }
+            Side::Favour => {
+                order_book.insert(
+                    opinion_id.clone(),
+                    OrderBook {
+                        favour: vec![order],
+                        against: vec![],
+                    },
+                );
+            }
+        };
+    }
 
     Json("ok")
 }
