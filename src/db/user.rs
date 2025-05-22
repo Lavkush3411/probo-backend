@@ -15,6 +15,7 @@ pub struct UserModel {
     password: String,
     created_at: Option<NaiveDateTime>,
     updated_at: Option<NaiveDateTime>,
+    balance: i32
 }
 
 impl User {
@@ -28,7 +29,7 @@ impl User {
             r#"--sql
         INSERT INTO users (name, email, password)
         VALUES ($1,$2,$3)
-        RETURNING id, name, email, password, created_at, updated_at
+        RETURNING id, name, email, password, created_at, updated_at, balance
         "#,
             user.name,
             user.email,

@@ -65,7 +65,7 @@ async fn handle_order(
                     } else {
                         let trade = TradeModel {
                             id: None,
-                            quantity: quantity - book_order.quantity,
+                            quantity: book_order.quantity,
                             opinion_id: opinion_id.clone(),
                             favour_user_id: book_order.user_id.clone(),
                             favour_price: book_order.price,
@@ -77,7 +77,6 @@ async fn handle_order(
                         remove += 1
                     }
                 }
-                println!("quantity is {} {:?}", quantity, trades);
 
                 for _ in 0..remove {
                     book_orders.favour.pop();
@@ -95,7 +94,6 @@ async fn handle_order(
                 let match_price = 1000 - order.price;
                 let mut quantity = order.quantity;
                 let mut remove = 0;
-                println!("quantity is {} {:?}", quantity, trades);
 
                 for book_order in book_orders.against.iter_mut().rev() {
                     // we will break if the highest price available for NO is less than minimum match price
@@ -118,7 +116,7 @@ async fn handle_order(
                     } else {
                         let trade = TradeModel {
                             id: None,
-                            quantity: quantity - book_order.quantity,
+                            quantity: book_order.quantity,
                             opinion_id: opinion_id.clone(),
                             favour_user_id: book_order.user_id.clone(),
                             favour_price: book_order.price,
@@ -130,7 +128,6 @@ async fn handle_order(
                         remove += 1
                     }
                 }
-                println!("quantity is {} {:?}", quantity, trades);
 
                 for _ in 0..remove {
                     book_orders.against.pop();
@@ -143,7 +140,6 @@ async fn handle_order(
     };
 
     if let Some((quantity, trades)) = remaining {
-        println!("quantity is {} {:?}", quantity, trades);
         match order.side {
             Side::Against => {
                 if quantity > 0 {
@@ -156,9 +152,7 @@ async fn handle_order(
                         });
                     }
                 };
-                println!("CREATING TRADE");
                 for trade in trades.iter() {
-                    println!("trade api");
                     db.trade.create(&trade).await.unwrap();
                 }
             }
