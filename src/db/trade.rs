@@ -69,3 +69,10 @@ pub struct TradeModel {
     pub quantity: u16,
     // pub created_at: Option<NaiveDateTime>,
 }
+
+
+impl TradeModel{
+    pub fn new(id:Option<String>, opinion_id:String, favour_user_id:String, against_user_id:String, favour_price:u16, against_price:u16, quantity:u16)->Self{
+        Self{id, opinion_id, favour_user_id, against_user_id, favour_price, against_price, quantity}
+    }
+}

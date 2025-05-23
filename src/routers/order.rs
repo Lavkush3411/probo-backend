@@ -7,7 +7,7 @@ use axum::{
 use serde_json::json;
 
 use crate::{
-    db::trade::TradeModel,
+    db::{db::DB, trade::TradeModel, user::UserModel},
     state::{AppState, Order, OrderBook, Side},
 };
 
@@ -22,14 +22,26 @@ async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
     return Json(json!({"order_book":order_book.clone()})).into_response();
 }
 
+async  fn check_balance_for_order(db:&DB, user_id:String, order:&Order)->bool{
+    let user:UserModel = db.user.get_by_id(user_id).await.expect("Error occured while fetching user details");
+    if order.price*order.quantity > user.balance as u16 {return  false};
+    true
+}
+
 #[axum::debug_handler]
 async fn handle_order(
     State(state): State<AppState>,
     Path(opinion_id): Path<String>,
     Json(order): Json<Order>,
 ) -> impl IntoResponse {
-    let mut order_book = state.order_book.write().await;
+    // check if user has enough money to add this order
     let db = state.db;
+    if !check_balance_for_order(&db, String::from("1"), &order).await {
+        return  Json("You cannot trade with amount more than your balance").into_response();
+    }
+
+
+    let mut order_book = state.order_book.write().await;
 
     let remaining = match order_book.get_mut(&opinion_id) {
         Some(book_orders) => match order.side {
@@ -101,28 +113,13 @@ async fn handle_order(
                         break;
                     }
                     if book_order.quantity > quantity {
-                        let trade = TradeModel {
-                            id: None,
-                            quantity,
-                            opinion_id: opinion_id.clone(),
-                            favour_user_id: book_order.user_id.clone(),
-                            favour_price: book_order.price,
-                            against_price: 1000 - book_order.price,
-                            against_user_id: order.user_id.clone(),
-                        };
+                        let trade = TradeModel::new(None, opinion_id.clone(), book_order.user_id.clone(),order.user_id.clone(), book_order.price, 1000 - book_order.price,quantity,
+                        );
                         trades.push(trade);
                         book_order.quantity -= quantity;
                         break;
                     } else {
-                        let trade = TradeModel {
-                            id: None,
-                            quantity: book_order.quantity,
-                            opinion_id: opinion_id.clone(),
-                            favour_user_id: book_order.user_id.clone(),
-                            favour_price: book_order.price,
-                            against_price: 1000 - order.price,
-                            against_user_id: order.user_id.clone(),
-                        };
+                        let trade = TradeModel::new(None,opinion_id.clone(), book_order.user_id.clone(), order.user_id.clone(), book_order.price, 1000 - order.price, book_order.quantity);
                         trades.push(trade);
                         quantity -= book_order.quantity;
                         remove += 1
@@ -195,5 +192,5 @@ async fn handle_order(
         };
     }
 
-    Json("ok")
+    Json("ok").into_response()
 }

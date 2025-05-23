@@ -9,13 +9,13 @@ pub struct User {
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct UserModel {
-    id: Option<String>,
-    name: String,
-    email: String,
-    password: String,
-    created_at: Option<NaiveDateTime>,
-    updated_at: Option<NaiveDateTime>,
-    balance: i32
+    pub id: Option<String>,
+    pub name: String,
+    pub email: String,
+    pub password: String,
+    pub created_at: Option<NaiveDateTime>,
+    pub updated_at: Option<NaiveDateTime>,
+    pub balance: i32
 }
 
 impl User {
@@ -47,5 +47,12 @@ impl User {
         )
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn get_by_id(&self,id:String)->Result<UserModel, sqlx::Error>{
+        query_as!(UserModel,
+        r#"--sql
+        SELECT id, name, email, password, created_at, updated_at, balance FROM users WHERE id=$1
+        "#,&id).fetch_one(&self.pool).await
     }
 }
