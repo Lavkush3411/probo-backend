@@ -1,20 +1,16 @@
 use axum::{
-    Json, Router,
-    extract::{Path, State},
-    response::IntoResponse,
-    routing::{get, post},
+extract::{Path, State}, middleware::from_fn, response::IntoResponse, routing::{get, post}, Extension, Json, Router
 };
 use serde_json::json;
 
 use crate::{
-    db::{db::DB, trade::TradeModel, user::UserModel},
-    state::{AppState, Order, OrderBook, Side},
+    db::{db::DB, trade::TradeModel, user::UserModel}, middlewares::auth::auth_middleware, state::{AppState, Order, OrderBook, Side}
 };
 
 pub fn order_router() -> Router<AppState> {
     Router::new()
         .route("/{opinion_id}", post(handle_order))
-        .route("/order_book", get(get_order_book))
+        .route("/order_book", get(get_order_book)).layer(from_fn(auth_middleware))
 }
 
 async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
@@ -32,11 +28,13 @@ async  fn check_balance_for_order(db:&DB, user_id:String, order:&Order)->bool{
 async fn handle_order(
     State(state): State<AppState>,
     Path(opinion_id): Path<String>,
+    Extension(user):Extension<UserModel>,
     Json(order): Json<Order>,
 ) -> impl IntoResponse {
     // check if user has enough money to add this order
     let db = state.db;
-    if !check_balance_for_order(&db, String::from("1"), &order).await {
+    let user_id = user.id.expect("User Id must be part of jwt token");
+    if !check_balance_for_order(&db, user_id, &order).await {
         return  Json("You cannot trade with amount more than your balance").into_response();
     }
 

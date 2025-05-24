@@ -7,7 +7,7 @@ pub struct User {
     pool: PgPool,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct UserModel {
     pub id: Option<String>,
     pub name: String,
