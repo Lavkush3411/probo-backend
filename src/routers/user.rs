@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::{
-    db::{db::DB, user::{CreateUserDto, UserModel}},
+    db::{db::DB, user::{CreateUserDto}},
     state::AppState,
 };
 
