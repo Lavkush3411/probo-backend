@@ -6,7 +6,7 @@ use axum::{
 };
 
 use crate::{
-    db::{db::DB, user::UserModel},
+    db::{db::DB, user::{CreateUserDto, UserModel}},
     state::AppState,
 };
 
@@ -16,7 +16,7 @@ pub fn user_router() -> Router<AppState> {
         .route("/users", get(get_users))
 }
 #[axum::debug_handler]
-pub async fn create_user(State(db): State<DB>, Json(user): Json<UserModel>) -> impl IntoResponse {
+pub async fn create_user(State(db): State<DB>, Json(user): Json<CreateUserDto>) -> impl IntoResponse {
     let new_user = db.user.create(&user).await;
     match new_user {
         Ok(user) => Json(user).into_response(),
