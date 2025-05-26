@@ -15,11 +15,11 @@ pub struct UserModel {
     pub password: String,
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
-    pub balance: i32
+    pub balance: i32,
 }
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 
-pub struct CreateUserDto{
+pub struct CreateUserDto {
     pub name: String,
     pub email: String,
     pub password: String,
@@ -56,14 +56,19 @@ impl User {
         .await
     }
 
-    pub async fn get_by_id(&self,id:String)->Result<UserModel, sqlx::Error>{
-        query_as!(UserModel,
-        r#"--sql
+    pub async fn get_by_id(&self, id: &String) -> Result<UserModel, sqlx::Error> {
+        query_as!(
+            UserModel,
+            r#"--sql
         SELECT id, name, email, password, created_at, updated_at, balance FROM users WHERE id=$1
-        "#,&id).fetch_one(&self.pool).await
+        "#,
+            &id
+        )
+        .fetch_one(&self.pool)
+        .await
     }
 
-    pub async fn get_by_email(&self, email:&String)->Result<UserModel, sqlx::Error>{
+    pub async fn get_by_email(&self, email: &String) -> Result<UserModel, sqlx::Error> {
         query_as!(UserModel,
         r#"--sql 
         SELECT id, name, email, password, created_at, updated_at, balance FROM users WHERE email=$1"#,email).fetch_one(&self.pool).await

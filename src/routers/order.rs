@@ -1,16 +1,23 @@
 use axum::{
-extract::{Path, State}, middleware::from_fn, response::IntoResponse, routing::{get, post}, Extension, Json, Router
+    Extension, Json, Router,
+    extract::{Path, State},
+    middleware::from_fn,
+    response::IntoResponse,
+    routing::{get, post},
 };
 use serde_json::json;
 
 use crate::{
-    db::{db::DB, trade::TradeModel, user::UserModel}, middlewares::auth::auth_middleware, state::{AppState, Order, OrderBook, Side}
+    db::{db::DB, trade::TradeModel, user::UserModel},
+    middlewares::auth::auth_middleware,
+    state::{AppState, CreateOrderDto, Order, OrderBook, Side},
 };
 
 pub fn order_router() -> Router<AppState> {
     Router::new()
         .route("/{opinion_id}", post(handle_order))
-        .route("/order_book", get(get_order_book)).layer(from_fn(auth_middleware))
+        .route("/order_book", get(get_order_book))
+        .layer(from_fn(auth_middleware))
 }
 
 async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
@@ -18,9 +25,15 @@ async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
     return Json(json!({"order_book":order_book.clone()})).into_response();
 }
 
-async  fn check_balance_for_order(db:&DB, user_id:String, order:&Order)->bool{
-    let user:UserModel = db.user.get_by_id(user_id).await.expect("Error occured while fetching user details");
-    if order.price*order.quantity > user.balance as u16 {return  false};
+async fn check_balance_for_order(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
+    let user: UserModel = db
+        .user
+        .get_by_id(user_id)
+        .await
+        .expect("Error occured while fetching user details");
+    if order.price * order.quantity > user.balance as u16 {
+        return false;
+    };
     true
 }
 
@@ -28,16 +41,15 @@ async  fn check_balance_for_order(db:&DB, user_id:String, order:&Order)->bool{
 async fn handle_order(
     State(state): State<AppState>,
     Path(opinion_id): Path<String>,
-    Extension(user):Extension<UserModel>,
-    Json(order): Json<Order>,
+    Extension(user): Extension<UserModel>,
+    Json(order): Json<CreateOrderDto>,
 ) -> impl IntoResponse {
     // check if user has enough money to add this order
     let db = state.db;
     let user_id = user.id.expect("User Id must be part of jwt token");
-    if !check_balance_for_order(&db, user_id, &order).await {
-        return  Json("You cannot trade with amount more than your balance").into_response();
+    if !check_balance_for_order(&db, &user_id, &order).await {
+        return Json("You cannot trade with amount more than your balance").into_response();
     }
-
 
     let mut order_book = state.order_book.write().await;
 
@@ -67,7 +79,7 @@ async fn handle_order(
                             favour_user_id: book_order.user_id.clone(),
                             favour_price: book_order.price,
                             against_price: 1000 - book_order.price,
-                            against_user_id: order.user_id.clone(),
+                            against_user_id: user_id.clone(),
                         };
                         trades.push(trade);
                         book_order.quantity -= quantity;
@@ -79,8 +91,8 @@ async fn handle_order(
                             opinion_id: opinion_id.clone(),
                             favour_user_id: book_order.user_id.clone(),
                             favour_price: book_order.price,
-                            against_price: 1000 - order.price,
-                            against_user_id: order.user_id.clone(),
+                            against_price: 1000 - book_order.price,
+                            against_user_id: user_id.clone(),
                         };
                         trades.push(trade);
                         quantity -= book_order.quantity;
@@ -111,13 +123,31 @@ async fn handle_order(
                         break;
                     }
                     if book_order.quantity > quantity {
-                        let trade = TradeModel::new(None, opinion_id.clone(), book_order.user_id.clone(),order.user_id.clone(), book_order.price, 1000 - book_order.price,quantity,
+                        let trade = TradeModel::new(
+                            None,
+                            opinion_id.clone(),
+                            user_id.clone(),
+                            book_order.user_id.clone(),
+                            1000 - book_order.price,
+                            book_order.price,
+                            quantity,
                         );
                         trades.push(trade);
                         book_order.quantity -= quantity;
                         break;
                     } else {
-                        let trade = TradeModel::new(None,opinion_id.clone(), book_order.user_id.clone(), order.user_id.clone(), book_order.price, 1000 - order.price, book_order.quantity);
+                        // price given by user is just a price to check price against book orders
+                        // or we can say its maximum that one user can pay
+                        // actual trade will happen on the book price to be able to give best price to the user
+                        let trade = TradeModel::new(
+                            None,
+                            opinion_id.clone(),
+                            user_id.clone(),
+                            book_order.user_id.clone(),
+                            1000 - book_order.price,
+                            book_order.price,
+                            book_order.quantity,
+                        );
                         trades.push(trade);
                         quantity -= book_order.quantity;
                         remove += 1
@@ -140,7 +170,7 @@ async fn handle_order(
                 if quantity > 0 {
                     if let Some(order_book) = order_book.get_mut(&opinion_id) {
                         order_book.against.push(Order {
-                            user_id: order.user_id,
+                            user_id: user_id,
                             quantity,
                             price: order.price,
                             side: order.side,
@@ -155,7 +185,7 @@ async fn handle_order(
                 if quantity > 0 {
                     if let Some(order_book) = order_book.get_mut(&opinion_id) {
                         order_book.favour.push(Order {
-                            user_id: order.user_id,
+                            user_id: user_id,
                             quantity,
                             price: order.price,
                             side: order.side,
@@ -168,6 +198,12 @@ async fn handle_order(
             }
         }
     } else {
+        let order = Order {
+            user_id,
+            quantity: order.quantity,
+            price: order.price,
+            side: order.side,
+        };
         match &order.side {
             Side::Against => {
                 order_book.insert(

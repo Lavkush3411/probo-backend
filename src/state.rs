@@ -36,6 +36,13 @@ pub struct Order {
     pub side: Side,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreateOrderDto {
+    pub quantity: u16,
+    pub price: u16,
+    pub side: Side,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "lowercase")]
 pub enum Side {
