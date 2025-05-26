@@ -16,7 +16,7 @@ impl Trade {
 
         let _ = query!(
             r#"--sql
-        UPDATE users SET balance=balance-$1
+        UPDATE users SET hold_balance=hold_balance-$1
         WHERE id=$2;
         "#,
             trade.favour_price as i32,
@@ -27,7 +27,7 @@ impl Trade {
 
         let _ = query!(
             r#"--sql
-        UPDATE users SET balance=balance-$1
+        UPDATE users SET hold_balance=hold_balance-$1
         WHERE id=$2;
         "#,
             trade.against_price as i32,

@@ -30,10 +30,18 @@ async fn check_balance_for_order(db: &DB, user_id: &String, order: &CreateOrderD
         .user
         .get_by_id(user_id)
         .await
-        .expect("Error occured while fetching user details");
+        .expect("Error occurred while fetching user details");
     if order.price * order.quantity > user.balance as u16 {
         return false;
     };
+    true
+}
+
+async fn hold_balance(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
+    db.user
+        .hold_balance(user_id, (&order.price) * (&order.quantity))
+        .await
+        .expect("Error occurred in holding user balance");
     true
 }
 
@@ -47,7 +55,7 @@ async fn handle_order(
     // check if user has enough money to add this order
     let db = state.db;
     let user_id = user.id.expect("User Id must be part of jwt token");
-    if !check_balance_for_order(&db, &user_id, &order).await {
+    if !hold_balance(&db, &user_id, &order).await {
         return Json("You cannot trade with amount more than your balance").into_response();
     }
 

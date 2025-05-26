@@ -1,6 +1,6 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, query_as};
+use sqlx::{PgPool, query, query_as};
 
 #[derive(Clone)]
 pub struct User {
@@ -16,6 +16,7 @@ pub struct UserModel {
     pub created_at: Option<NaiveDateTime>,
     pub updated_at: Option<NaiveDateTime>,
     pub balance: i32,
+    pub hold_balance: i32,
 }
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 
@@ -36,7 +37,7 @@ impl User {
             r#"--sql
         INSERT INTO users (name, email, password)
         VALUES ($1,$2,$3)
-        RETURNING id, name, email, password, created_at, updated_at, balance
+        RETURNING id, name, email, password, created_at, updated_at, balance, hold_balance
         "#,
             user.name,
             user.email,
@@ -60,7 +61,7 @@ impl User {
         query_as!(
             UserModel,
             r#"--sql
-        SELECT id, name, email, password, created_at, updated_at, balance FROM users WHERE id=$1
+        SELECT id, name, email, password, created_at, updated_at, balance, hold_balance FROM users WHERE id=$1
         "#,
             &id
         )
@@ -68,9 +69,22 @@ impl User {
         .await
     }
 
+    pub async fn hold_balance(&self, id: &String, amount: u16) -> Result<(), sqlx::Error> {
+        query!(
+            r#"--sql
+            UPDATE users set hold_balance=hold_balance+$1 , balance=balance-$1  where id=$2
+                "#,
+            amount as i32,
+            id
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn get_by_email(&self, email: &String) -> Result<UserModel, sqlx::Error> {
         query_as!(UserModel,
         r#"--sql 
-        SELECT id, name, email, password, created_at, updated_at, balance FROM users WHERE email=$1"#,email).fetch_one(&self.pool).await
+        SELECT id, name, email, password, created_at, updated_at, balance, hold_balance FROM users WHERE email=$1"#,email).fetch_one(&self.pool).await
     }
 }
