@@ -22,7 +22,7 @@ pub async fn login(State(db):State<DB>, Json(req_user):Json<LoginDto> )-> impl I
         return  (StatusCode::UNAUTHORIZED, Json("Wrong password")).into_response();
     }
 
-    let token =encode::<String>(&Header::default(),&String::from("value") ,&EncodingKey::from_secret("secret".as_ref())).expect("Unable to serialize json web token");
+    let token =encode::<UserModel>(&Header::default(),&user ,&EncodingKey::from_secret("secret".as_ref())).expect("Unable to serialize json web token");
     Json(json!({"token":token})).into_response()
 
 }

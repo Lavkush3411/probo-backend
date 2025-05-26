@@ -6,7 +6,7 @@ use crate::db::user::{ UserModel};
 
 pub async fn auth_middleware(mut request:Request, next:Next)-> impl IntoResponse{
 
-    let token =match request.headers().get("token") {
+    let token =match request.headers().get("authorization") {
         Some(t) => match t.to_str() {
             Ok(t_str) => {
                 let parts:Vec<&str> =t_str.split(" ").collect();
@@ -16,10 +16,16 @@ pub async fn auth_middleware(mut request:Request, next:Next)-> impl IntoResponse
         },
         None => return (StatusCode::UNAUTHORIZED, Json("Token is required")).into_response(),
     };
-    let data = decode::<UserModel>(&token, &DecodingKey::from_secret("secret".as_ref()), &Validation::new(Algorithm::HS256));
+
+    let mut validation= Validation::new(Algorithm::HS256);
+    validation.required_spec_claims.clear();
+    validation.validate_exp=false;
+    let data = decode::<UserModel>(&token, &DecodingKey::from_secret("secret".as_ref()), &validation);
     let user =match data {
         Ok(data)=>{data.claims},
-        Err(_)=>{return (StatusCode::UNAUTHORIZED, Json("Token is invalid")).into_response();}
+        Err(err)=>{
+            println!("{:?}", err);
+            return (StatusCode::UNAUTHORIZED, Json("Token is invalid")).into_response();}
         
     };
     request.extensions_mut().insert(user);
