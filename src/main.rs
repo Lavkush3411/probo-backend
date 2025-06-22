@@ -8,13 +8,16 @@ mod db;
 mod state;
 mod routers;
 mod middlewares;
+use tower_http::cors::{CorsLayer, Any};
 
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+    let cors = CorsLayer::new().allow_origin(Any).allow_methods(Any) // GET, POST, etc.
+    .allow_headers(Any);
 
     let app_state= AppState::new().await;
-    let router= Router::new().route("/health-check", get(health_check)).merge(index_router()).with_state(app_state);
+    let router= Router::new().route("/health-check", get(health_check)).merge(index_router()).with_state(app_state).layer(cors);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
 
