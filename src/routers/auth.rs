@@ -1,9 +1,9 @@
-use axum::{extract::State, http::StatusCode,  response::IntoResponse, routing::post, Json, Router};
+use axum::{extract::State, http::StatusCode, middleware, response::IntoResponse, routing::{get, post}, Extension, Json, Router};
 use jsonwebtoken::{encode, EncodingKey, Header};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-use crate::{db::{db::DB, user::{CreateUserDto, UserModel}}, state::AppState};
+use crate::{db::{db::DB, user::{CreateUserDto, UserModel}}, middlewares::auth::auth_middleware, state::AppState};
 
 #[derive(Serialize)]
 struct ErrorMessage {
@@ -17,7 +17,11 @@ pub struct LoginDto{
 
 
 pub fn auth_router()-> Router<AppState>{
-    Router::new().route("/login", post(login)).route("/signup", post(create_user))
+    let protected = Router::new()
+        .route("/active-user", get(active_user))
+        .layer(middleware::from_fn(auth_middleware));
+    Router::new().route("/login", post(login)).route("/signup", post(create_user)).
+    merge(protected)
 }
 
 #[axum::debug_handler]
@@ -46,4 +50,9 @@ pub async fn create_user(State(db): State<DB>, Json(user): Json<CreateUserDto>) 
         Ok(user) => Json(user).into_response(),
         Err(_) => Json("Some Error Occurred while Creating user").into_response(),
     }
+}
+
+#[axum::debug_handler]
+pub async  fn active_user(Extension(user):Extension<UserModel>)->impl IntoResponse{
+    return Json(user);
 }

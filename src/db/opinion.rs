@@ -53,3 +53,13 @@ pub struct OpinionModel {
     pub description: Option<String>,
     pub result: Option<bool>,
 }
+
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct MarketModel {
+    pub id: Option<String>,
+    pub question: String,
+    pub description: Option<String>,
+    pub result: Option<bool>,
+    pub yes_price:i32,
+    pub no_price:i32,
+}

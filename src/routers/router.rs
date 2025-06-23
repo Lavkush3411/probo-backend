@@ -4,7 +4,7 @@ use axum::Router;
 
 pub fn index_router() -> Router<AppState> {
     Router::new()
-        .nest("/opinion", opinion_router())
+        .nest("/market", opinion_router())
         .nest("/user", user_router())
         .nest("/order", order_router())
         .nest("/trade", trade_router()).nest("/auth", auth_router())

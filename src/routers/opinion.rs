@@ -14,7 +14,7 @@ use crate::{
 pub fn opinion_router() -> Router<AppState> {
     Router::new()
         .route("/", post(create_opinion))
-        .route("/opinions", get(get_opinions))
+        .route("/markets", get(get_opinions))
 }
 
 pub async fn create_opinion(
@@ -32,10 +32,19 @@ pub async fn create_opinion(
     }
 }
 
-pub async fn get_opinions(State(db): State<DB>) -> impl IntoResponse {
+pub async fn get_opinions(State(app_state): State<AppState>) -> impl IntoResponse {
+    let db =app_state.db;
     let opinions = db.opinion.find_many().await;
-    match opinions {
-        Ok(opinions) => Json(opinions).into_response(),
-        Err(_) => Json("Error occurred while fetching opinions").into_response(),
+    let opinions= match opinions {
+        Ok(opinions) => opinions,
+        Err(_) => return  Json("Error occurred while fetching opinions").into_response(),
+    };
+    let order_book= app_state.order_book.read().await;
+
+    for op in opinions.iter(){
+        
     }
+    
+
+    return  Json({}).into_response();
 }
