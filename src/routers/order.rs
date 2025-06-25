@@ -25,17 +25,17 @@ async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
     return Json(json!({"order_book":order_book.clone()})).into_response();
 }
 
-async fn check_balance_for_order(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
-    let user: UserModel = db
-        .user
-        .get_by_id(user_id)
-        .await
-        .expect("Error occurred while fetching user details");
-    if order.price * order.quantity > user.balance as u16 {
-        return false;
-    };
-    true
-}
+// async fn check_balance_for_order(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
+//     let user: UserModel = db
+//         .user
+//         .get_by_id(user_id)
+//         .await
+//         .expect("Error occurred while fetching user details");
+//     if order.price * order.quantity > user.balance as u16 {
+//         return false;
+//     };
+//     true
+// }
 
 async fn hold_balance(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
     db.user
