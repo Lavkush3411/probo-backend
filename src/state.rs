@@ -28,6 +28,15 @@ pub struct OrderBook {
     pub against: Vec<Order>,
 }
 
+impl OrderBook {
+    pub fn empty() -> Self {
+        Self {
+            favour: vec![],
+            against: vec![],
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Order {
     pub user_id: String,
