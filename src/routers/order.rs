@@ -183,6 +183,7 @@ async fn handle_order(
                             price: order.price,
                             side: order.side,
                         });
+                        order_book.against.sort_by_key(|o| o.price);
                     }
                 };
                 for trade in trades.iter() {
@@ -198,6 +199,7 @@ async fn handle_order(
                             price: order.price,
                             side: order.side,
                         });
+                        order_book.favour.sort_by_key(|o| o.price);
                     }
                 };
                 for trade in trades.iter() {
@@ -206,6 +208,7 @@ async fn handle_order(
             }
         }
     } else {
+        // if there are 0 orders for a trade
         let order = Order {
             user_id,
             quantity: order.quantity,

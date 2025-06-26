@@ -1,6 +1,6 @@
 use axum::{
     Json, Router,
-    extract::State,
+    extract::{Path, State},
     response::IntoResponse,
     routing::{get, post},
 };
@@ -28,6 +28,7 @@ pub fn opinion_router() -> Router<AppState> {
     Router::new()
         .route("/", post(create_opinion))
         .route("/markets", get(get_opinions))
+        .route("/{opinionId}", get(get_opinion_by_id))
 }
 
 pub async fn create_opinion(
@@ -69,8 +70,11 @@ pub async fn get_opinions(State(app_state): State<AppState>) -> impl IntoRespons
             Some(orders) => orders,
             None => continue,
         };
-        let yes_price = orders.favour.get(0).map(|o| o.price).unwrap_or(0) as i32;
-        let no_price = orders.against.get(0).map(|o| o.price).unwrap_or(0) as i32;
+
+        // lowest price in NO will be the best price for yes to buy and visa versa
+        // someone who sees yes price (that is lowest in no) then buys places order to buy yes at that price
+        let yes_price = orders.against.get(0).map(|o| 1000 - o.price).unwrap_or(0) as i32;
+        let no_price = orders.favour.get(0).map(|o| 1000 - o.price).unwrap_or(0) as i32;
         let market = MarketModel {
             id: id.clone(),
             question: op.question.clone(),
@@ -83,4 +87,17 @@ pub async fn get_opinions(State(app_state): State<AppState>) -> impl IntoRespons
     }
 
     return Json(markets).into_response();
+}
+
+pub async fn get_opinion_by_id(
+    Path(opinion_id): Path<String>,
+    State(app_state): State<AppState>,
+) -> impl IntoResponse {
+    let db = app_state.db;
+    let opinion = match db.opinion.find_one(opinion_id).await {
+        Ok(op) => op,
+        Err(_) => return Json(json!({"":""})).into_response(),
+    };
+
+    Json(opinion).into_response()
 }
