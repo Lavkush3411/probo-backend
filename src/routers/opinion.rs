@@ -1,6 +1,7 @@
 use axum::{
     Json, Router,
     extract::{Path, State},
+    http::StatusCode,
     response::IntoResponse,
     routing::{get, post},
 };
@@ -28,7 +29,26 @@ pub fn opinion_router() -> Router<AppState> {
     Router::new()
         .route("/", post(create_opinion))
         .route("/markets", get(get_opinions))
-        .route("/{opinionId}", get(get_opinion_by_id))
+        .route("/{opinion_id}", get(get_opinion_by_id))
+        .route("/depth/{opinion_id}", get(get_market_depth_by_id))
+}
+
+async fn get_market_depth_by_id(
+    State(state): State<AppState>,
+    Path(opinion_id): Path<String>,
+) -> impl IntoResponse {
+    let order_book = state.order_book.read().await;
+    let orders = match order_book.get(&opinion_id) {
+        Some(orders) => orders,
+        None => {
+            return (
+                StatusCode::NOT_FOUND,
+                Json(json!({"message":"Order Book not found"})),
+            )
+                .into_response();
+        }
+    };
+    return Json(json!({"order_book":orders.clone()})).into_response();
 }
 
 pub async fn create_opinion(
@@ -71,10 +91,9 @@ pub async fn get_opinions(State(app_state): State<AppState>) -> impl IntoRespons
             None => continue,
         };
 
-        // lowest price in NO will be the best price for yes to buy and visa versa
-        // someone who sees yes price (that is lowest in no) then buys places order to buy yes at that price
-        let yes_price = orders.against.get(0).map(|o| 1000 - o.price).unwrap_or(0) as i32;
-        let no_price = orders.favour.get(0).map(|o| 1000 - o.price).unwrap_or(0) as i32;
+        // highest price in NO will be the best price (best Yes = 1000 - highest NO = Lowest Yes) for yes to buy and visa versa
+        let yes_price = orders.against.last().map(|o| 1000 - o.price).unwrap_or(0) as i32;
+        let no_price = orders.favour.last().map(|o| 1000 - o.price).unwrap_or(0) as i32;
         let market = MarketModel {
             id: id.clone(),
             question: op.question.clone(),
@@ -96,7 +115,7 @@ pub async fn get_opinion_by_id(
     let db = app_state.db;
     let opinion = match db.opinion.find_one(opinion_id).await {
         Ok(op) => op,
-        Err(_) => return Json(json!({"":""})).into_response(),
+        Err(_) => return Json(json!({"message":"Error Occurred"})).into_response(),
     };
 
     Json(opinion).into_response()
