@@ -82,6 +82,42 @@ impl Trade {
 
         Ok(t)
     }
+
+    pub async fn get_trades_by_opinion_id(
+        &self,
+        opinion_id: &String,
+    ) -> Result<Vec<TradeModel>, sqlx::Error> {
+        let trades = query!(
+            r#"--sql
+            SELECT  id, 
+            opinion_id, 
+            favour_user_id, 
+            against_user_id, 
+            favour_price, 
+            against_price, quantity
+        FROM trades
+        WHERE opinion_id = $1
+        "#,
+            opinion_id
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let t = trades
+            .into_iter()
+            .map(|row| TradeModel {
+                id: Some(row.id),
+                opinion_id: row.opinion_id,
+                favour_user_id: row.favour_user_id,
+                against_user_id: row.against_user_id,
+                favour_price: row.favour_price.try_into().unwrap(), // i16 -> u16
+                against_price: row.against_price.try_into().unwrap(), // i16 -> u16
+                quantity: row.quantity.try_into().unwrap(),
+            })
+            .collect();
+
+        Ok(t)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, FromRow)]

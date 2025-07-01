@@ -82,6 +82,53 @@ impl User {
         Ok(())
     }
 
+    pub async fn release_balance<'a, E>(
+        &self,
+        executor: E,
+        user_id: &String,
+        amount: u16,
+    ) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::Executor<'a, Database = sqlx::Postgres>,
+    {
+        query!(
+            r#"--sql
+        UPDATE users set hold_balance=hold_balance-$1 , balance=balance+$1  where id=$2
+        "#,
+            amount as i32,
+            user_id
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn update_balance_post_result(&self) -> Result<(), sqlx::Error> {
+        query!(
+            r#"--sql
+            UPDATE users
+SET
+  balance = balance + CASE
+    WHEN id = $1 THEN $2 -- winner gets winnings
+    ELSE 0
+  END,
+  hold_balance = hold_balance - CASE
+    WHEN id = $1 THEN $3 -- winner loses hold too
+    WHEN id = $4 THEN $5 -- loser loses hold
+    ELSE 0
+  END
+WHERE id IN ($1, $4);"#,
+            "",
+            3,
+            4,
+            "",
+            5
+        )
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
     pub async fn get_by_email(&self, email: &String) -> Result<UserModel, sqlx::Error> {
         query_as!(UserModel,
         r#"--sql 

@@ -1,3 +1,5 @@
+use std::result;
+
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -10,7 +12,7 @@ use serde_json::json;
 use sqlx::prelude::FromRow;
 
 use crate::{
-    db::opinion::OpinionModel,
+    db::{db::DB, opinion::OpinionModel, trade::TradeModel},
     state::{AppState, OrderBook},
 };
 
@@ -31,6 +33,89 @@ pub fn opinion_router() -> Router<AppState> {
         .route("/markets", get(get_opinions))
         .route("/{opinion_id}", get(get_opinion_by_id))
         .route("/depth/{opinion_id}", get(get_market_depth_by_id))
+        .route("/result/{opinion_id)}", post(declare_result))
+}
+
+#[derive(Serialize, Deserialize)]
+struct DeclareResultDto {
+    result: bool,
+}
+
+async fn release_all_balances(db: &DB, orders: &OrderBook) -> bool {
+    let mut tx = match db.pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => return false,
+    };
+
+    for order in orders.against.iter() {
+        if db
+            .user
+            .release_balance(&mut *tx, &order.user_id, order.price)
+            .await
+            .is_err()
+        {
+            return false;
+        }
+    }
+
+    for order in orders.favour.iter() {
+        if db
+            .user
+            .release_balance(&mut *tx, &order.user_id, order.price)
+            .await
+            .is_err()
+        {
+            return false;
+        };
+    }
+    if tx.commit().await.is_err() {
+        return false;
+    };
+    return true;
+}
+
+async fn distribute_prize(db: &DB, trades: Vec<TradeModel>, result: bool) {
+    let mut tx = db.pool.begin().await;
+
+    // if result is true then add amount to favour users and deduct from against
+
+    if result {
+        for trade in trades.iter(){
+            
+        }
+    } else {
+    }
+}
+
+async fn declare_result(
+    State(state): State<AppState>,
+    Path(opinion_id): Path<String>,
+    Json(declare_result_dto): Json<DeclareResultDto>,
+) -> impl IntoResponse {
+    //release the hold money from state
+    let db = state.db;
+
+    if let Some(orders) = state.order_book.read().await.get(&opinion_id).cloned() {
+        if release_all_balances(&db, &orders).await {
+            state.order_book.write().await.remove(&opinion_id);
+        }
+    }
+
+    // distribute the prize
+    let trades = match db.trade.get_trades_by_opinion_id(&opinion_id).await {
+        Ok(trades) => trades,
+        Err(_) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({"message":"Error while prize distribution"})),
+            )
+                .into_response();
+        }
+    };
+
+    distribute_prize(&db, trades, declare_result_dto.result).await;
+
+    Json("").into_response()
 }
 
 async fn get_market_depth_by_id(

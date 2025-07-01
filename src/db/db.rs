@@ -1,6 +1,6 @@
 use std::env;
 
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 
 use super::{opinion::Opinion, trade::Trade, user::User};
 
@@ -9,6 +9,7 @@ pub struct DB {
     pub user: User,
     pub opinion: Opinion,
     pub trade: Trade,
+    pub pool: Pool<Postgres>,
 }
 
 impl DB {
@@ -20,6 +21,7 @@ impl DB {
             user: User::new(pool.clone()),
             opinion: Opinion::new(pool.clone()),
             trade: Trade::new(pool.clone()),
+            pool: pool.clone(),
         }
     }
 }
