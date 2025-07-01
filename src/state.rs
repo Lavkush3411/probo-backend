@@ -5,6 +5,7 @@ use tokio::sync::RwLock;
 use crate::db::db::DB;
 use axum::extract::FromRef;
 use serde::{Deserialize, Serialize};
+use validator::Validate;
 
 pub type SharedOrderBook = Arc<RwLock<HashMap<String, OrderBook>>>;
 #[derive(Clone, FromRef)]
@@ -45,10 +46,13 @@ pub struct Order {
     pub side: Side,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Validate)]
 pub struct CreateOrderDto {
+    #[validate(range(min=1,max=5))]
     pub quantity: u16,
+    #[validate(range(min=100,max=900))]
     pub price: u16,
+
     pub side: Side,
 }
 

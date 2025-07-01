@@ -1,11 +1,8 @@
 use axum::{
-    Extension, Json, Router,
-    extract::{Path, State},
-    middleware::from_fn,
-    response::IntoResponse,
-    routing::{get, post},
+    extract::{Path, State}, http::StatusCode, middleware::from_fn, response::IntoResponse, routing::{get, post}, Extension, Json, Router
 };
 use serde_json::json;
+use validator::Validate;
 
 use crate::{
     db::{db::DB, trade::TradeModel, user::UserModel},
@@ -38,11 +35,14 @@ async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
 // }
 
 async fn hold_balance(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
-    db.user
+    let result = db.user
         .hold_balance(user_id, (&order.price) * (&order.quantity))
-        .await
-        .expect("Error occurred in holding user balance");
-    true
+        .await;
+
+    match result {
+        Ok(_)=>true,
+        Err(_)=>false
+    }
 }
 
 #[axum::debug_handler]
@@ -53,10 +53,16 @@ async fn handle_order(
     Json(order): Json<CreateOrderDto>,
 ) -> impl IntoResponse {
     // check if user has enough money to add this order
+    if let Err(e) = order.validate() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "message": "Trade failed","errors":e })),
+        ).into_response();
+    }
     let db = state.db;
     let user_id = user.id.expect("User Id must be part of jwt token");
     if !hold_balance(&db, &user_id, &order).await {
-        return Json("You cannot trade with amount more than your balance").into_response();
+        return (StatusCode::INTERNAL_SERVER_ERROR ,Json(json!({"message":"You cannot trade with amount more than your balance"}))).into_response();
     }
 
     let mut order_book = state.order_book.write().await;
