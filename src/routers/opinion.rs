@@ -31,7 +31,7 @@ pub fn opinion_router() -> Router<AppState> {
         .route("/markets", get(get_opinions))
         .route("/{opinion_id}", get(get_opinion_by_id))
         .route("/depth/{opinion_id}", get(get_market_depth_by_id))
-        .route("/result/{opinion_id)}", post(declare_result))
+        .route("/{opinion_id)}/declare-result", post(declare_result))
 }
 
 #[derive(Serialize, Deserialize)]
@@ -125,14 +125,14 @@ async fn distribute_prize(
         }
     }
 
-    if db
-        .opinion
-        .update_result(&mut *tx, opinion_id, result)
-        .await
-        .is_err()
-    {
-        return false;
-    }
+    // if db
+    //     .opinion
+    //     .update_result(&mut *tx, opinion_id, result)
+    //     .await
+    //     .is_err()
+    // {
+    //     return false;
+    // }
 
     return true;
 }
@@ -145,13 +145,19 @@ async fn declare_result(
     //release the hold money from state
     let db = state.db;
 
-    if let Some(orders) = state.order_book.read().await.get(&opinion_id).cloned() {
+    let orders = {
+        let read_guard = state.order_book.read().await;
+        read_guard.get(&opinion_id).cloned()
+    };
+
+    if let Some(orders) = orders {
         if release_all_balances(&db, &orders).await {
-            state.order_book.write().await.remove(&opinion_id);
+            let mut state2 = state.order_book.write().await;
+            state2.remove(&opinion_id);
         }
     }
 
-    // distribute the prize
+    // get the trades
     let trades = match db.trade.get_trades_by_opinion_id(&opinion_id).await {
         Ok(trades) => trades,
         Err(_) => {
@@ -162,6 +168,8 @@ async fn declare_result(
                 .into_response();
         }
     };
+
+    // distribute the prize
 
     let status = distribute_prize(&db, trades, &opinion_id, declare_result_dto.result).await;
     if !status {

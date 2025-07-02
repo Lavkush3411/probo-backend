@@ -12,31 +12,7 @@ impl Trade {
     }
 
     pub async fn create(&self, trade: &TradeModel) -> Result<(), sqlx::Error> {
-        let mut tx = self.pool.begin().await?;
-
-        let _ = query!(
-            r#"--sql
-        UPDATE users SET hold_balance=hold_balance-$1
-        WHERE id=$2;
-        "#,
-            trade.favour_price as i32,
-            trade.favour_user_id
-        )
-        .execute(&mut *tx)
-        .await?;
-
-        let _ = query!(
-            r#"--sql
-        UPDATE users SET hold_balance=hold_balance-$1
-        WHERE id=$2;
-        "#,
-            trade.against_price as i32,
-            trade.against_user_id
-        )
-        .execute(&mut *tx)
-        .await?;
-
-        let _ = query!(
+        query!(
             r#"--sql
         INSERT INTO trades (opinion_id, favour_user_id,against_user_id, favour_price, against_price,quantity )
         VALUES ($1,$2,$3,$4,$5,$6)
@@ -45,10 +21,9 @@ impl Trade {
             &trade.favour_user_id,
             &trade.against_user_id,trade.favour_price as i64,trade.against_price as i64,trade.quantity as i64
         )
-        .execute( &mut *tx)
+        .execute(&self.pool)
         .await?;
 
-        tx.commit().await?;
         Ok(())
     }
 
