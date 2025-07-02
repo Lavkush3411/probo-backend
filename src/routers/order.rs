@@ -1,5 +1,10 @@
 use axum::{
-    extract::{Path, State}, http::StatusCode, middleware::from_fn, response::IntoResponse, routing::{get, post}, Extension, Json, Router
+    Extension, Json, Router,
+    extract::{Path, State},
+    http::StatusCode,
+    middleware::from_fn,
+    response::IntoResponse,
+    routing::{get, post},
 };
 use serde_json::json;
 use validator::Validate;
@@ -22,26 +27,15 @@ async fn get_order_book(State(state): State<AppState>) -> impl IntoResponse {
     return Json(json!({"order_book":order_book.clone()})).into_response();
 }
 
-// async fn check_balance_for_order(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
-//     let user: UserModel = db
-//         .user
-//         .get_by_id(user_id)
-//         .await
-//         .expect("Error occurred while fetching user details");
-//     if order.price * order.quantity > user.balance as u16 {
-//         return false;
-//     };
-//     true
-// }
-
 async fn hold_balance(db: &DB, user_id: &String, order: &CreateOrderDto) -> bool {
-    let result = db.user
+    let result = db
+        .user
         .hold_balance(user_id, (&order.price) * (&order.quantity))
         .await;
 
     match result {
-        Ok(_)=>true,
-        Err(_)=>false
+        Ok(_) => true,
+        Err(_) => false,
     }
 }
 
@@ -57,12 +51,17 @@ async fn handle_order(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "message": "Trade failed","errors":e })),
-        ).into_response();
+        )
+            .into_response();
     }
     let db = state.db;
     let user_id = user.id.expect("User Id must be part of jwt token");
     if !hold_balance(&db, &user_id, &order).await {
-        return (StatusCode::INTERNAL_SERVER_ERROR ,Json(json!({"message":"You cannot trade with amount more than your balance"}))).into_response();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"message":"You cannot trade with amount more than your balance"})),
+        )
+            .into_response();
     }
 
     let mut order_book = state.order_book.write().await;

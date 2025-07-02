@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{Error, PgPool, prelude::FromRow, query_as};
+use sqlx::{Error, Executor, PgPool, Postgres, prelude::FromRow, query, query_as};
 
 #[derive(Clone)]
 pub struct Opinion {
@@ -39,10 +39,33 @@ impl Opinion {
         query_as!(
             OpinionModel,
             r#"--sql 
-        SELECT * FROM opinions"#
+        SELECT * FROM opinions WHERE result is NULL"#
         )
         .fetch_all(&self.pool)
         .await
+    }
+
+    pub async fn update_result<'a, E>(
+        &self,
+        executor: E,
+        opinion_id: &String,
+        result: bool,
+    ) -> Result<(), Error>
+    where
+        E: Executor<'a, Database = Postgres>,
+    {
+        query!(
+            r#"--sql
+            UPDATE opinions
+            SET result=$1
+            WHERE id=$2
+        "#,
+            result,
+            opinion_id
+        )
+        .execute(executor)
+        .await?;
+        Ok(())
     }
 }
 
@@ -53,5 +76,3 @@ pub struct OpinionModel {
     pub description: Option<String>,
     pub result: Option<bool>,
 }
-
-

@@ -1,5 +1,3 @@
-use std::result;
-
 use axum::{
     Json, Router,
     extract::{Path, State},
@@ -74,17 +72,69 @@ async fn release_all_balances(db: &DB, orders: &OrderBook) -> bool {
     return true;
 }
 
-async fn distribute_prize(db: &DB, trades: Vec<TradeModel>, result: bool) {
-    let mut tx = db.pool.begin().await;
+async fn distribute_prize(
+    db: &DB,
+    trades: Vec<TradeModel>,
+    opinion_id: &String,
+    result: bool,
+) -> bool {
+    let mut tx = match db.pool.begin().await {
+        Ok(tx) => tx,
+        Err(_) => return false,
+    };
 
     // if result is true then add amount to favour users and deduct from against
 
     if result {
-        for trade in trades.iter(){
-            
+        // favour user is winner
+        for trade in trades.iter() {
+            if db
+                .user
+                .update_balance_post_result(
+                    &mut *tx,
+                    &trade.favour_user_id,
+                    &trade.against_user_id,
+                    trade.favour_price,
+                    trade.against_price,
+                    trade.favour_price + trade.against_price,
+                )
+                .await
+                .is_err()
+            {
+                return false;
+            };
         }
     } else {
+        // against user is winner
+        for trade in trades.iter() {
+            if db
+                .user
+                .update_balance_post_result(
+                    &mut *tx,
+                    &trade.against_user_id,
+                    &trade.favour_user_id,
+                    trade.against_price,
+                    trade.favour_price,
+                    trade.favour_price + trade.against_price,
+                )
+                .await
+                .is_err()
+            {
+                return false;
+            };
+        }
     }
+
+    if db
+        .opinion
+        .update_result(&mut *tx, opinion_id, result)
+        .await
+        .is_err()
+    {
+        return false;
+    }
+
+    return true;
 }
 
 async fn declare_result(
@@ -107,15 +157,22 @@ async fn declare_result(
         Err(_) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({"message":"Error while prize distribution"})),
+                Json(json!({"message":"Error while getting trades list for opinion"})),
             )
                 .into_response();
         }
     };
 
-    distribute_prize(&db, trades, declare_result_dto.result).await;
+    let status = distribute_prize(&db, trades, &opinion_id, declare_result_dto.result).await;
+    if !status {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({"message":"Error while prize distribution"})),
+        )
+            .into_response();
+    }
 
-    Json("").into_response()
+    Json(json!({"message":"Successfully distributed the prize"})).into_response()
 }
 
 async fn get_market_depth_by_id(

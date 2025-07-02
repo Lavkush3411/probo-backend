@@ -103,28 +103,39 @@ impl User {
         Ok(())
     }
 
-    pub async fn update_balance_post_result(&self) -> Result<(), sqlx::Error> {
+    pub async fn update_balance_post_result<'a, E>(
+        &self,
+        executor: E,
+        winner_id: &String,
+        loser_id: &String,
+        winner_hold: u16,
+        loser_hold: u16,
+        winning_price: u16,
+    ) -> Result<(), sqlx::Error>
+    where
+        E: sqlx::Executor<'a, Database = sqlx::Postgres>,
+    {
         query!(
             r#"--sql
             UPDATE users
-SET
-  balance = balance + CASE
-    WHEN id = $1 THEN $2 -- winner gets winnings
-    ELSE 0
-  END,
-  hold_balance = hold_balance - CASE
-    WHEN id = $1 THEN $3 -- winner loses hold too
-    WHEN id = $4 THEN $5 -- loser loses hold
-    ELSE 0
-  END
-WHERE id IN ($1, $4);"#,
-            "",
-            3,
-            4,
-            "",
-            5
+            SET
+            balance = balance + CASE
+                WHEN id = $1 THEN $2 -- winner gets winnings
+                ELSE 0
+            END,
+            hold_balance = hold_balance - CASE
+                WHEN id = $1 THEN $3 -- winner loses hold too
+                WHEN id = $4 THEN $5 -- loser loses hold
+                ELSE 0
+            END
+            WHERE id IN ($1, $4);"#,
+            winner_id,
+            winning_price as i32,
+            winner_hold as i32,
+            loser_id,
+            loser_hold as i32
         )
-        .execute(&self.pool)
+        .execute(executor)
         .await?;
         Ok(())
     }
