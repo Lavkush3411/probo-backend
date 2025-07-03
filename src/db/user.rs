@@ -119,15 +119,16 @@ impl User {
             r#"--sql
             UPDATE users
             SET
-            balance = balance + CASE
-                WHEN id = $1 THEN $2 -- winner gets winnings
+              balance = balance + CASE
+                WHEN id = $1 THEN $2
                 ELSE 0
-            END,
-            hold_balance = hold_balance - CASE
-                WHEN id = $1 THEN $3 -- winner loses hold too
-                WHEN id = $4 THEN $5 -- loser loses hold
+              END,
+              hold_balance = hold_balance - CASE
+                WHEN id = $1 AND $1 = $4 THEN COALESCE($3, 0) + COALESCE($5, 0)
+                WHEN id = $1 THEN $3
+                WHEN id = $4 THEN $5
                 ELSE 0
-            END
+              END
             WHERE id IN ($1, $4);"#,
             winner_id,
             winning_price as i32,

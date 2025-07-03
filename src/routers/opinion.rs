@@ -113,7 +113,7 @@ async fn distribute_prize(
                     &mut *tx,
                     &trade.against_user_id,
                     &trade.favour_user_id,
-                    trade.against_price,
+                    trade.against_price, 
                     trade.favour_price,
                     trade.favour_price + trade.against_price,
                 )
@@ -125,14 +125,18 @@ async fn distribute_prize(
         }
     }
 
-    // if db
-    //     .opinion
-    //     .update_result(&mut *tx, opinion_id, result)
-    //     .await
-    //     .is_err()
-    // {
-    //     return false;
-    // }
+    if db
+        .opinion
+        .update_result(&mut *tx, opinion_id, result)
+        .await
+        .is_err()
+    {
+        return false;
+    }
+
+    if tx.commit().await.is_err() {
+        return false;
+    }
 
     return true;
 }
