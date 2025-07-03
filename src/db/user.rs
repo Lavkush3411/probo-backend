@@ -124,7 +124,7 @@ impl User {
                 ELSE 0
               END,
               hold_balance = hold_balance - CASE
-                WHEN id = $1 AND $1 = $4 THEN COALESCE($3, 0) + COALESCE($5, 0)
+                WHEN id = $1 AND $1 = $4 THEN ($3::numeric + $5::numeric)
                 WHEN id = $1 THEN $3
                 WHEN id = $4 THEN $5
                 ELSE 0
