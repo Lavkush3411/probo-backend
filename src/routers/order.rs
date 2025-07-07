@@ -54,7 +54,7 @@ async fn handle_order(
         )
             .into_response();
     }
-    let db = state.db;
+    let db = &state.db;
     let user_id = user.id.expect("User Id must be part of jwt token");
     if !hold_balance(&db, &user_id, &order).await {
         return (
@@ -64,9 +64,35 @@ async fn handle_order(
             .into_response();
     }
 
+    let remaining = match_orders(&user_id, &opinion_id, &state, &order).await;
+
+    if create_trades_and_update_order_book(&user_id, &opinion_id, &state, remaining, &order)
+        .await
+        .is_err()
+    {
+        let mut tx = db.pool.begin().await.unwrap();
+        db.user
+            .release_balance(&mut *tx, &user_id, order.price * order.quantity)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    };
+    Json("ok").into_response()
+}
+
+/**
+ * find matching order
+ * get unfulfilled quantity and list of trades that are match
+ */
+async fn match_orders(
+    user_id: &String,
+    opinion_id: &String,
+    state: &AppState,
+    order: &CreateOrderDto,
+) -> Option<(u16, Vec<TradeModel>)> {
     let mut order_book = state.order_book.write().await;
 
-    let remaining = match order_book.get_mut(&opinion_id) {
+    return match order_book.get_mut(opinion_id) {
         Some(book_orders) => match order.side {
             Side::Against => {
                 // we will have to find a matching order price against current price to create a trade
@@ -178,17 +204,32 @@ async fn handle_order(
         },
         None => None,
     };
+}
+
+/**
+ * if there are unfulfilled quantities and fulfilled trades or any of them
+ * create trade in db and add into order book
+ * */
+async fn create_trades_and_update_order_book(
+    user_id: &String,
+    opinion_id: &String,
+    state: &AppState,
+    remaining: Option<(u16, Vec<TradeModel>)>,
+    order: &CreateOrderDto,
+) -> Result<bool, String> {
+    let db = &state.db;
+    let mut order_book = state.order_book.write().await;
 
     if let Some((quantity, trades)) = remaining {
         match order.side {
             Side::Against => {
                 if quantity > 0 {
-                    if let Some(order_book) = order_book.get_mut(&opinion_id) {
+                    if let Some(order_book) = order_book.get_mut(opinion_id) {
                         order_book.against.push(Order {
                             user_id: user_id.clone(),
                             quantity,
                             price: order.price,
-                            side: order.side,
+                            side: order.side.clone(),
                         });
                         order_book.against.sort_by_key(|o| o.price);
                     }
@@ -211,12 +252,12 @@ async fn handle_order(
             Side::Favour => {
                 // if some quantity is remaining to fill push and sort
                 if quantity > 0 {
-                    if let Some(order_book) = order_book.get_mut(&opinion_id) {
+                    if let Some(order_book) = order_book.get_mut(opinion_id) {
                         order_book.favour.push(Order {
                             user_id: user_id.clone(),
                             quantity,
                             price: order.price,
-                            side: order.side,
+                            side: order.side.clone(),
                         });
                         order_book.favour.sort_by_key(|o| o.price);
                     }
@@ -239,10 +280,10 @@ async fn handle_order(
     } else {
         // if there are 0 orders for a trade
         let order = Order {
-            user_id,
+            user_id: user_id.clone(),
             quantity: order.quantity,
             price: order.price,
-            side: order.side,
+            side: order.side.clone(),
         };
         match &order.side {
             Side::Against => {
@@ -266,5 +307,5 @@ async fn handle_order(
         };
     }
 
-    Json("ok").into_response()
+    return Ok(true);
 }
