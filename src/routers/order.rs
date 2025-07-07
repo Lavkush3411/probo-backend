@@ -96,6 +96,7 @@ async fn handle_order(
                         };
                         trades.push(trade);
                         book_order.quantity -= quantity;
+                        quantity = 0;
                         break;
                     } else {
                         let trade = TradeModel {
@@ -147,6 +148,7 @@ async fn handle_order(
                         );
                         trades.push(trade);
                         book_order.quantity -= quantity;
+                        quantity = 0;
                         break;
                     } else {
                         // price given by user is just a price to check price against book orders
@@ -207,6 +209,7 @@ async fn handle_order(
                 }
             }
             Side::Favour => {
+                // if some quantity is remaining to fill push and sort
                 if quantity > 0 {
                     if let Some(order_book) = order_book.get_mut(&opinion_id) {
                         order_book.favour.push(Order {
