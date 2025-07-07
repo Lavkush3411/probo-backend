@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use sqlx::{PgPool, prelude::FromRow, query};
+use sqlx::{Executor, PgPool, Postgres, prelude::FromRow, query};
 
 #[derive(Clone)]
 pub struct Trade {
@@ -11,7 +11,10 @@ impl Trade {
         Self { pool }
     }
 
-    pub async fn create(&self, trade: &TradeModel) -> Result<(), sqlx::Error> {
+    pub async fn create<'a, E>(&self, executor: E, trade: &TradeModel) -> Result<(), sqlx::Error>
+    where
+        E: Executor<'a, Database = Postgres>,
+    {
         query!(
             r#"--sql
         INSERT INTO trades (opinion_id, favour_user_id,against_user_id, favour_price, against_price,quantity )
@@ -21,7 +24,7 @@ impl Trade {
             &trade.favour_user_id,
             &trade.against_user_id,trade.favour_price as i64,trade.against_price as i64,trade.quantity as i64
         )
-        .execute(&self.pool)
+        .execute(executor)
         .await?;
 
         Ok(())

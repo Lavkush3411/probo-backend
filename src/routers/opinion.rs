@@ -48,7 +48,7 @@ async fn release_all_balances(db: &DB, orders: &OrderBook) -> bool {
     for order in orders.against.iter() {
         if db
             .user
-            .release_balance(&mut *tx, &order.user_id, order.price)
+            .release_balance(&mut *tx, &order.user_id, order.price * order.quantity)
             .await
             .is_err()
         {
@@ -59,7 +59,7 @@ async fn release_all_balances(db: &DB, orders: &OrderBook) -> bool {
     for order in orders.favour.iter() {
         if db
             .user
-            .release_balance(&mut *tx, &order.user_id, order.price)
+            .release_balance(&mut *tx, &order.user_id, order.price * order.quantity)
             .await
             .is_err()
         {
@@ -87,22 +87,32 @@ async fn distribute_prize(
 
     if result {
         // favour user is winner
+        let mut c = 0;
         for trade in trades.iter() {
-            if db
+            let update_result = db
                 .user
                 .update_balance_post_result(
                     &mut *tx,
                     &trade.favour_user_id,
                     &trade.against_user_id,
-                    trade.favour_price,
-                    trade.against_price,
-                    trade.favour_price + trade.against_price,
+                    trade.favour_price * trade.quantity,
+                    trade.against_price * trade.quantity,
+                    (trade.favour_price + trade.against_price) * trade.quantity,
                 )
-                .await
-                .is_err()
-            {
+                .await;
+            //     .is_err()
+            // {
+            //     println!("error in wiining favour user");
+            //     return false;
+            // };
+            c += 1;
+
+            if let Err(e) = update_result {
+                println!("Error in winning favour user: {:?}", e);
+                println!("{}", c);
+                println!("{:?}", trade);
                 return false;
-            };
+            }
         }
     } else {
         // against user is winner
@@ -113,13 +123,14 @@ async fn distribute_prize(
                     &mut *tx,
                     &trade.against_user_id,
                     &trade.favour_user_id,
-                    trade.against_price, 
-                    trade.favour_price,
-                    trade.favour_price + trade.against_price,
+                    trade.against_price * trade.quantity,
+                    trade.favour_price * trade.quantity,
+                    (trade.favour_price + trade.against_price) * trade.quantity,
                 )
                 .await
                 .is_err()
             {
+                println!("error in wiining against user");
                 return false;
             };
         }

@@ -183,7 +183,7 @@ async fn handle_order(
                 if quantity > 0 {
                     if let Some(order_book) = order_book.get_mut(&opinion_id) {
                         order_book.against.push(Order {
-                            user_id: user_id,
+                            user_id: user_id.clone(),
                             quantity,
                             price: order.price,
                             side: order.side,
@@ -192,14 +192,25 @@ async fn handle_order(
                     }
                 };
                 for trade in trades.iter() {
-                    db.trade.create(&trade).await.unwrap();
+                    let mut tx = db.pool.begin().await.unwrap();
+                    db.trade.create(&mut *tx, &trade).await.unwrap();
+                    // cleaning up hold balance if trade happens at lower price then the user requested.
+                    db.user
+                        .release_balance(
+                            &mut *tx,
+                            &user_id,
+                            trade.quantity * (order.price - trade.against_price),
+                        )
+                        .await
+                        .unwrap();
+                    tx.commit().await.unwrap();
                 }
             }
             Side::Favour => {
                 if quantity > 0 {
                     if let Some(order_book) = order_book.get_mut(&opinion_id) {
                         order_book.favour.push(Order {
-                            user_id: user_id,
+                            user_id: user_id.clone(),
                             quantity,
                             price: order.price,
                             side: order.side,
@@ -208,7 +219,17 @@ async fn handle_order(
                     }
                 };
                 for trade in trades.iter() {
-                    db.trade.create(&trade).await.unwrap();
+                    let mut tx = db.pool.begin().await.unwrap();
+                    db.trade.create(&mut *tx, &trade).await.unwrap();
+                    db.user
+                        .release_balance(
+                            &mut *tx,
+                            &user_id,
+                            trade.quantity * (order.price - trade.favour_price),
+                        )
+                        .await
+                        .unwrap();
+                    tx.commit().await.unwrap();
                 }
             }
         }
