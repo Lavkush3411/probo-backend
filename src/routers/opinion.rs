@@ -2,6 +2,7 @@ use axum::{
     Json, Router,
     extract::{Path, State},
     http::StatusCode,
+    middleware,
     response::IntoResponse,
     routing::{get, post},
 };
@@ -11,6 +12,7 @@ use sqlx::prelude::FromRow;
 
 use crate::{
     db::{db::DB, opinion::OpinionModel, trade::TradeModel},
+    middlewares::auth::auth_middleware,
     state::{AppState, OrderBook},
 };
 
@@ -32,6 +34,7 @@ pub fn opinion_router() -> Router<AppState> {
         .route("/{opinion_id}", get(get_opinion_by_id))
         .route("/depth/{opinion_id}", get(get_market_depth_by_id))
         .route("/{opinion_id)}/declare-result", post(declare_result))
+        .layer(middleware::from_fn(auth_middleware))
 }
 
 #[derive(Serialize, Deserialize)]

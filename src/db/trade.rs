@@ -30,17 +30,26 @@ impl Trade {
         Ok(())
     }
 
-    pub async fn get_trades(&self) -> Result<Vec<TradeModel>, sqlx::Error> {
+    pub async fn get_trades(
+        &self,
+        user_id: Option<String>,
+        active: Option<bool>,
+    ) -> Result<Vec<TradeModel>, sqlx::Error> {
+        // if true then result then gets active trades
+        // false then get closed trades
         let trades = query!(
             r#"--sql
-            SELECT  id, 
+            SELECT  t.id, 
             opinion_id, 
             favour_user_id, 
             against_user_id, 
             favour_price, 
             against_price, quantity
-        FROM trades
-        "#
+        FROM trades t JOIN opinions o ON t.opinion_id = o.id WHERE ($1::text IS NULL OR favour_user_id=$1 OR against_user_id=$1) AND (($2::bool = true AND o.result IS NULL) OR
+        ($2::bool = false AND o.result IS NOT NULL))
+        "#,
+            user_id,
+            active.unwrap_or(true)
         )
         .fetch_all(&self.pool)
         .await?;

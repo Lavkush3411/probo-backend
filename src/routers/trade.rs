@@ -1,13 +1,35 @@
-use axum::{Json, Router, extract::State, response::IntoResponse, routing::get};
+use axum::{
+    Extension, Json, Router,
+    extract::{Query, State},
+    middleware,
+    response::IntoResponse,
+    routing::get,
+};
+use serde::Deserialize;
 
-use crate::{db::db::DB, state::AppState};
+use crate::{
+    db::{db::DB, user::UserModel},
+    middlewares::auth::auth_middleware,
+    state::AppState,
+};
 
 pub fn trade_router() -> Router<AppState> {
-    Router::new().route("/", get(get_all_trades))
+    Router::new()
+        .route("/trades", get(get_all_trades))
+        .layer(middleware::from_fn(auth_middleware))
 }
 
-pub async fn get_all_trades(State(db): State<DB>) -> impl IntoResponse {
-    let trades = db.trade.get_trades().await;
+#[derive(Deserialize)]
+pub struct GetTradesQuery {
+    active: Option<bool>,
+}
+
+pub async fn get_all_trades(
+    State(db): State<DB>,
+    Extension(user): Extension<UserModel>,
+    Query(query): Query<GetTradesQuery>,
+) -> impl IntoResponse {
+    let trades = db.trade.get_trades(user.id, query.active).await;
 
     match trades {
         Ok(trades) => Json(trades).into_response(),
