@@ -116,7 +116,6 @@ pub struct TradeModel {
     pub favour_price: u16,
     pub against_price: u16,
     pub quantity: u16,
-    // pub created_at: Option<NaiveDateTime>,
 }
 
 impl TradeModel {
