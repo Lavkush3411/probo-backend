@@ -108,6 +108,7 @@ impl Trade {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, FromRow)]
+#[serde(rename_all = "camelCase")]
 pub struct TradeModel {
     pub id: Option<String>,
     pub opinion_id: String,

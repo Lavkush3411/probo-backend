@@ -110,6 +110,9 @@ async fn match_orders(
                     if match_price > book_order.price {
                         break;
                     }
+                    if user_id == &book_order.user_id {
+                        continue;
+                    }
                     if book_order.quantity > quantity {
                         let trade = TradeModel {
                             id: None,
@@ -161,6 +164,9 @@ async fn match_orders(
                     // we will break if the highest price available for NO is less than minimum match price
                     if match_price > book_order.price {
                         break;
+                    }
+                    if user_id == &book_order.user_id {
+                        continue;
                     }
                     if book_order.quantity > quantity {
                         let trade = TradeModel::new(

@@ -5,14 +5,14 @@ use axum::{
     response::IntoResponse,
     routing::get,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use tokio::sync::RwLockReadGuard;
 
 use crate::{
     db::user::UserModel,
     middlewares::auth::auth_middleware,
-    state::{AppState, Order, OrderBook},
+    state::{AppState, OrderBook, Side},
 };
 
 pub fn trade_router() -> Router<AppState> {
@@ -59,11 +59,20 @@ pub async fn get_all_trades(
 }
 
 use std::collections::HashMap;
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderWithOpinion {
+    pub opinion_id: String,
+    pub user_id: String,
+    pub quantity: u16,
+    pub price: u16,
+    pub side: Side,
+}
 
 pub fn get_orders_by_user(
     order_book: &RwLockReadGuard<'_, HashMap<String, OrderBook>>,
     user_id: &str,
-) -> Vec<(String, Order)> {
+) -> Vec<OrderWithOpinion> {
     let mut user_orders = Vec::new();
 
     for (opinion_id, book) in order_book.iter() {
@@ -80,4 +89,13 @@ pub fn get_orders_by_user(
     }
 
     user_orders
+        .into_iter()
+        .map(|(opinion_id, order)| OrderWithOpinion {
+            opinion_id: opinion_id,
+            user_id: order.user_id,
+            quantity: order.quantity,
+            price: order.price,
+            side: order.side,
+        })
+        .collect()
 }
