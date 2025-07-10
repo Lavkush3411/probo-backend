@@ -1,6 +1,7 @@
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, query, query_as};
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct User {
@@ -24,6 +25,15 @@ pub struct CreateUserDto {
     pub name: String,
     pub email: String,
     pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize, sqlx::FromRow)]
+pub struct UserTransactionsModel {
+    pub id: Uuid,
+    pub created_at: NaiveDateTime,
+    pub user_id: String,
+    pub old_balance: i32,
+    pub new_balance: i32,
 }
 
 impl User {
@@ -52,6 +62,22 @@ impl User {
             UserModel,
             r#"--sql 
         SELECT * from users"#
+        )
+        .fetch_all(&self.pool)
+        .await
+    }
+
+    pub async fn get_user_transactions(
+        &self,
+        id: &String,
+    ) -> Result<Vec<UserTransactionsModel>, sqlx::Error> {
+        query_as!(
+            UserTransactionsModel,
+            r#"--sql
+        SELECT * FROM user_balance_logs WHERE user_id=$1
+        ORDER BY created_at DESC
+        "#,
+            id
         )
         .fetch_all(&self.pool)
         .await

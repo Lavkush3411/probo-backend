@@ -1,17 +1,45 @@
 use axum::{
-    Json, Router,
+    Extension, Json, Router,
     extract::{Path, State},
+    middleware::from_fn,
     response::IntoResponse,
     routing::get,
 };
 use serde_json::json;
 
-use crate::{db::db::DB, state::AppState};
+use crate::{
+    db::{
+        db::DB,
+        user::{UserModel, UserTransactionsModel},
+    },
+    middlewares::auth::auth_middleware,
+    state::AppState,
+};
 
 pub fn user_router() -> Router<AppState> {
     Router::new()
         .route("/users", get(get_users))
+        .route(
+            "/transactions",
+            get(get_user_transactions).route_layer(from_fn(auth_middleware)),
+        )
         .route("/{user_id}", get(get_user_by_id))
+}
+
+pub async fn get_user_transactions(
+    State(db): State<DB>,
+    Extension(user): Extension<UserModel>,
+) -> impl IntoResponse {
+    match user.id {
+        Some(id) => match db.user.get_user_transactions(&id).await {
+            Ok(transactions) => Json(transactions).into_response(),
+            Err(err) => {
+                eprintln!("DB error: {:?}", err);
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            }
+        },
+        None => Json(Vec::<UserTransactionsModel>::new()).into_response(),
+    }
 }
 
 pub async fn get_user_by_id(
